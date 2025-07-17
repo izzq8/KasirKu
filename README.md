@@ -154,7 +154,7 @@ Jika menemukan bug atau ingin request fitur baru, silakan buat issue di GitHub r
 ## 📞 Support
 
 Untuk pertanyaan dan dukungan:
-- Email: [your-email@example.com]
+- Email: [abhinayafa4@gmail.com]
 - GitHub Issues: [https://github.com/izzq8/KasirKu/issues]
 
 ---
