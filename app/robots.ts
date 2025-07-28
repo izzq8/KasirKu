@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://kasirku.vercel.app' // Ganti dengan URL sebenarnya
+  const baseUrl = 'https://kasirku.vercel.app'
   
   return {
     rules: {
