@@ -19,7 +19,7 @@ export function generateSEO({
   noIndex = false,
   noFollow = false,
 }: SEOProps = {}): Metadata {
-  const baseUrl = 'https://kasirku.vercel.app' // Ganti dengan URL sebenarnya
+  const baseUrl = 'https://kasirku.vercel.app'
   
   const defaultKeywords = [
     'sistem kasir',

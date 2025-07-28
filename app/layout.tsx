@@ -20,7 +20,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://kasirku.vercel.app'), // Ganti dengan URL sebenarnya
+  metadataBase: new URL('https://kasirku.vercel.app'),
   title: {
     default: "KasirKu - Sistem Kasir Modern & POS Terbaik Indonesia",
     template: "%s | KasirKu"
@@ -106,7 +106,7 @@ export const metadata: Metadata = {
   category: "Business Software",
   classification: "Point of Sale System",
   verification: {
-    google: "your-google-site-verification-code", // Ganti dengan kode verifikasi Google
+    google: "RKxExUFleKxlkxcbzflJeBQnutyED5euDy_fX4xtirE",
   },
 }
 
