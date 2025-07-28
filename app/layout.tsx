@@ -106,7 +106,7 @@ export const metadata: Metadata = {
   category: "Business Software",
   classification: "Point of Sale System",
   verification: {
-    google: "2NfWJ15aRvO0pJkKEi3rc1M5P4F6t1N0LFEjKt7fK0I",
+    google: "efdQRKPiEXu19Zl7gIFu0oiYH-17sx9MBVsV6tZGobY",
   },
 }
 
