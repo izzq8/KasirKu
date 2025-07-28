@@ -13,7 +13,10 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "analyze": "ANALYZE=true next build",
+    "seo-check": "next-sitemap && lighthouse --output=json --chrome-flags='--headless' --only-categories=seo",
+    "sitemap": "next-sitemap"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
