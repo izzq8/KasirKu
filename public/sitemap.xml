@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://kasirku.vercel.app</loc>
-    <lastmod>2025-07-28</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-</urlset>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://kasirku.vercel.app/sitemap-pages.xml</loc>
+    <lastmod>2025-07-28T00:00:00+00:00</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://kasirku.vercel.app/sitemap-posts.xml</loc>
+    <lastmod>2025-07-28T00:00:00+00:00</lastmod>
+  </sitemap>
+</sitemapindex>
