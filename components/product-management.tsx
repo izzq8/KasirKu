@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,9 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { Plus, Edit, Trash2, RefreshCw, FileSpreadsheet } from "lucide-react"
+import { Plus, Edit, Trash2, RefreshCw, FileSpreadsheet, Upload, X, Image as ImageIcon } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { ExcelImportDialog } from "./excel-import-dialog"
+import { 
+  validateImageFile, 
+  handleProductImageUpload, 
+  removeProductImage 
+} from "@/lib/imageUtils"
 
 interface Product {
   id: string
@@ -20,6 +25,7 @@ interface Product {
   weight: string
   price: number
   stock: number
+  image_url?: string
   user_id: string
   created_at: string
   updated_at: string
@@ -38,6 +44,13 @@ export function ProductManagement() {
     price: "",
     stock: "",
   })
+  
+  // Image handling states
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>("")
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
   const { toast } = useToast()
 
   useEffect(() => {
@@ -153,6 +166,70 @@ export function ProductManagement() {
     }
   }
 
+  // Image handling functions
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate image file
+    const validation = validateImageFile(file)
+    if (!validation.isValid) {
+      toast({
+        title: "Error",
+        description: validation.error,
+        variant: "destructive",
+      })
+      e.target.value = '' // Reset input
+      return
+    }
+
+    setSelectedImage(file)
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const clearImageSelection = () => {
+    setSelectedImage(null)
+    setImagePreview("")
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  const handleRemoveExistingImage = async (productId: string, imageUrl: string) => {
+    if (!currentUserId) return
+
+    try {
+      const result = await removeProductImage(productId, currentUserId, imageUrl)
+      if (result.success) {
+        toast({
+          title: "Berhasil",
+          description: "Gambar produk berhasil dihapus",
+        })
+        // Refresh products to update UI
+        await fetchProducts()
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Gagal hapus gambar",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error removing image:", error)
+      toast({
+        title: "Error",
+        description: "Terjadi kesalahan saat hapus gambar",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -237,7 +314,7 @@ export function ProductManagement() {
 
       if (editingProduct) {
         // Update existing product - ensure it belongs to current user
-        const { error } = await supabase
+        const { data: updatedProduct, error } = await supabase
           .from("products")
           .update({
             name: formData.name.trim(),
@@ -248,6 +325,8 @@ export function ProductManagement() {
           })
           .eq("id", editingProduct.id)
           .eq("user_id", currentUserId) // Critical: ensure user can only update their own products
+          .select()
+          .single()
 
         if (error) {
           console.error("Error updating product:", error)
@@ -259,13 +338,38 @@ export function ProductManagement() {
           return
         }
 
-        toast({
-          title: "Berhasil",
-          description: "Produk berhasil diupdate",
-        })
+        // Handle image upload if new image selected
+        if (selectedImage) {
+          setIsUploadingImage(true)
+          const imageResult = await handleProductImageUpload(
+            selectedImage, 
+            editingProduct.id, 
+            currentUserId,
+            editingProduct.image_url // Pass old image URL for deletion
+          )
+          setIsUploadingImage(false)
+
+          if (imageResult.error) {
+            toast({
+              title: "Error Upload Gambar",
+              description: imageResult.error,
+              variant: "destructive",
+            })
+          } else {
+            toast({
+              title: "Berhasil",
+              description: "Produk dan gambar berhasil diupdate",
+            })
+          }
+        } else {
+          toast({
+            title: "Berhasil",
+            description: "Produk berhasil diupdate",
+          })
+        }
       } else {
         // Create new product - always assign to current user
-        const { error } = await supabase.from("products").insert([
+        const { data: newProduct, error } = await supabase.from("products").insert([
           {
             name: formData.name.trim(),
             weight: formData.weight.trim(),
@@ -274,6 +378,8 @@ export function ProductManagement() {
             user_id: currentUserId, // Critical: always assign to current user
           },
         ])
+        .select()
+        .single()
 
         if (error) {
           console.error("Error creating product:", error)
@@ -285,14 +391,39 @@ export function ProductManagement() {
           return
         }
 
-        toast({
-          title: "Berhasil",
-          description: "Produk berhasil ditambahkan",
-        })
+        // Handle image upload if image selected
+        if (selectedImage && newProduct) {
+          setIsUploadingImage(true)
+          const imageResult = await handleProductImageUpload(
+            selectedImage, 
+            newProduct.id, 
+            currentUserId
+          )
+          setIsUploadingImage(false)
+
+          if (imageResult.error) {
+            toast({
+              title: "Error Upload Gambar",
+              description: imageResult.error,
+              variant: "destructive",
+            })
+          } else {
+            toast({
+              title: "Berhasil",
+              description: "Produk dan gambar berhasil ditambahkan",
+            })
+          }
+        } else {
+          toast({
+            title: "Berhasil",
+            description: "Produk berhasil ditambahkan",
+          })
+        }
       }
 
       // Reset form and close dialog
       setFormData({ name: "", weight: "", price: "", stock: "" })
+      clearImageSelection() // Clear image selection
       setEditingProduct(null)
       setIsDialogOpen(false)
       await fetchProducts()
@@ -324,6 +455,14 @@ export function ProductManagement() {
       price: product.price.toString(),
       stock: product.stock.toString(),
     })
+    
+    // Set existing image preview if product has image
+    if (product.image_url) {
+      setImagePreview(product.image_url)
+    } else {
+      clearImageSelection()
+    }
+    
     setIsDialogOpen(true)
   }
 
@@ -384,6 +523,7 @@ export function ProductManagement() {
     setIsDialogOpen(false)
     setEditingProduct(null)
     setFormData({ name: "", weight: "", price: "", stock: "" })
+    clearImageSelection() // Clear image selection
   }
 
   const handleAddProduct = () => {
@@ -398,6 +538,7 @@ export function ProductManagement() {
 
     setEditingProduct(null)
     setFormData({ name: "", weight: "", price: "", stock: "" })
+    clearImageSelection() // Clear image selection
     setIsDialogOpen(true)
   }
 
@@ -488,30 +629,58 @@ export function ProductManagement() {
                   {products.map((product) => (
                     <Card key={product.id} className="border border-gray-200">
                       <CardContent className="p-4">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm sm:text-base truncate">{product.name}</h4>
-                            {product.weight && (
-                              <p className="text-xs sm:text-sm text-muted-foreground truncate">{product.weight}</p>
+                        <div className="flex gap-3 mb-3">
+                          {/* Product Image */}
+                          <div className="flex-shrink-0">
+                            {product.image_url ? (
+                              <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
+                                <img
+                                  src={product.image_url}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                                <button
+                                  onClick={() => handleRemoveExistingImage(product.id, product.image_url!)}
+                                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center">
+                                <ImageIcon className="w-6 h-6 text-gray-400" />
+                              </div>
                             )}
                           </div>
-                          <div className="flex space-x-1 ml-2">
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(product)} className="h-8 w-8 p-0">
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleDelete(product)} className="h-8 w-8 p-0">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Harga:</span>
-                            <div className="font-medium">Rp {product.price.toLocaleString("id-ID")}</div>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Stok:</span>
-                            <div className="font-medium">{product.stock}</div>
+                          
+                          {/* Product Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm sm:text-base truncate">{product.name}</h4>
+                                {product.weight && (
+                                  <p className="text-xs sm:text-sm text-muted-foreground truncate">{product.weight}</p>
+                                )}
+                              </div>
+                              <div className="flex space-x-1 ml-2">
+                                <Button variant="outline" size="sm" onClick={() => handleEdit(product)} className="h-8 w-8 p-0">
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => handleDelete(product)} className="h-8 w-8 p-0">
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Harga:</span>
+                                <div className="font-medium">Rp {product.price.toLocaleString("id-ID")}</div>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground">Stok:</span>
+                                <div className="font-medium">{product.stock}</div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -524,6 +693,7 @@ export function ProductManagement() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Gambar</TableHead>
                         <TableHead>Nama Produk</TableHead>
                         <TableHead>Berat/Ukuran</TableHead>
                         <TableHead>Harga</TableHead>
@@ -534,6 +704,27 @@ export function ProductManagement() {
                     <TableBody>
                       {products.map((product) => (
                         <TableRow key={product.id}>
+                          <TableCell>
+                            {product.image_url ? (
+                              <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
+                                <img
+                                  src={product.image_url}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                                <button
+                                  onClick={() => handleRemoveExistingImage(product.id, product.image_url!)}
+                                  className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                                >
+                                  <X className="w-2 h-2" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                                <ImageIcon className="w-4 h-4 text-gray-400" />
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell className="font-medium">{product.name}</TableCell>
                           <TableCell>{product.weight}</TableCell>
                           <TableCell>Rp {product.price.toLocaleString("id-ID")}</TableCell>
@@ -586,6 +777,53 @@ export function ProductManagement() {
                 required
               />
             </div>
+            
+            {/* Image Upload Section */}
+            <div className="space-y-2">
+              <Label>Gambar Produk (Opsional)</Label>
+              <div className="space-y-3">
+                {/* Image Preview */}
+                {imagePreview && (
+                  <div className="relative w-32 h-32 rounded-lg overflow-hidden bg-gray-100 mx-auto">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={clearImageSelection}
+                      className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm hover:bg-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                
+                {/* File Input */}
+                <div className="flex flex-col items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label
+                    htmlFor="image-upload"
+                    className="cursor-pointer flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {selectedImage ? 'Ganti Gambar' : 'Pilih Gambar'}
+                  </label>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Format: JPG, PNG, WebP (max 2MB)
+                  </p>
+                </div>
+              </div>
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="price">Harga</Label>
               <Input
@@ -612,10 +850,19 @@ export function ProductManagement() {
               />
             </div>
             <div className="flex justify-end space-x-2 pt-4">
-              <Button type="button" variant="outline" onClick={handleDialogClose}>
+              <Button type="button" variant="outline" onClick={handleDialogClose} disabled={isUploadingImage}>
                 Batal
               </Button>
-              <Button type="submit">{editingProduct ? "Update" : "Tambah"}</Button>
+              <Button type="submit" disabled={isUploadingImage}>
+                {isUploadingImage ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  editingProduct ? "Update" : "Tambah"
+                )}
+              </Button>
             </div>
           </form>
         </DialogContent>

@@ -443,6 +443,17 @@ export function POSInterface({
                       onClick={() => addToCart(product)}
                     >
                       <CardContent className="p-3 sm:p-4">
+                        {/* Product Image */}
+                        {product.image_url && (
+                          <div className="w-full h-24 sm:h-32 rounded-lg overflow-hidden bg-gray-100 mb-3">
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        
                         <h3 className="font-semibold text-sm sm:text-base truncate">{product.name}</h3>
                         {product.weight && (
                           <p className="text-xs sm:text-sm text-muted-foreground truncate">{product.weight}</p>
