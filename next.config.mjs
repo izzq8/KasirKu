@@ -38,25 +38,6 @@ const nextConfig = {
           },
         ],
       },
-    ]
-  },
-  // Redirects untuk SEO
-  async redirects() {
-    return [
-      {
-        source: '/home',
-        destination: '/',
-        permanent: true,
-      },
-      {
-        source: '/index',
-        destination: '/',
-        permanent: true,
-      },
-    ]
-  },
-  async headers() {
-    return [
       {
         source: '/sitemap.xml',
         headers: [
@@ -78,6 +59,21 @@ const nextConfig = {
             value: 'text/plain',
           },
         ],
+      },
+    ]
+  },
+  // Redirects untuk SEO
+  async redirects() {
+    return [
+      {
+        source: '/home',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/index',
+        destination: '/',
+        permanent: true,
       },
     ]
   },
